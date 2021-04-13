@@ -1,9 +1,12 @@
 package com.learntodroid.wallpaperapptutorial;
 
-public class Wallpaper {
-    private String title, imageUri;
+import android.net.Uri;
 
-    public Wallpaper(String title, String imageUri) {
+public class Wallpaper {
+    private String title;
+    private Uri imageUri;
+
+    public Wallpaper(String title, Uri imageUri) {
         this.title = title;
         this.imageUri = imageUri;
     }
@@ -12,7 +15,7 @@ public class Wallpaper {
         return title;
     }
 
-    public String getImageUri() {
+    public Uri getImageUri() {
         return imageUri;
     }
 }

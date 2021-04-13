@@ -43,6 +43,7 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
     private RecyclerView wallpaperRecyclerView;
     private WallpaperGalleryRecyclerAdapter wallpaperGalleryRecyclerAdapter;
     private List<Wallpaper> wallpapers;
+    private ExecutorService executorService = Executors.newSingleThreadExecutor();
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -56,15 +57,8 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
     }
 
     private void initUI() {
-        wallpapers = new ArrayList<>();
-        wallpapers.add(new Wallpaper("Beach", "https://images.pexels.com/photos/853199/pexels-photo-853199.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260"));
-        wallpapers.add(new Wallpaper("Mountain", "https://images.pexels.com/photos/1261728/pexels-photo-1261728.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260"));
-        wallpapers.add(new Wallpaper("Field", "https://images.pexels.com/photos/35857/amazing-beautiful-breathtaking-clouds.jpg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260"));
-        wallpapers.add(new Wallpaper("Clouds", "https://images.pexels.com/photos/2088205/pexels-photo-2088205.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260"));
-        wallpapers.add(new Wallpaper("Condensation", "https://images.pexels.com/photos/891030/pexels-photo-891030.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=750&w=1260"));
-
         wallpaperGalleryRecyclerAdapter = new WallpaperGalleryRecyclerAdapter(this);
-        wallpaperGalleryRecyclerAdapter.setWallpapers(wallpapers);
+        query();
     }
 
     @Override
@@ -96,106 +90,61 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
         return view;
     }
 
-    private void setHomeScreenWallpaper(Bitmap bitmap) {
-        try {
-            WallpaperManager.getInstance(getContext()).setBitmap(bitmap);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void setCroppedHomeScreenWallpaper(Bitmap bitmap) {
-        try {
-            WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                int wallpaperHeight = Resources.getSystem().getDisplayMetrics().heightPixels;
-                int wallpaperWidth = Resources.getSystem().getDisplayMetrics().widthPixels;
-
-                Point start = new Point(0, 0);
-                Point end = new Point(bitmap.getWidth(), bitmap.getHeight());
-
-                if (bitmap.getWidth() > wallpaperWidth) {
-                    start.x = (bitmap.getWidth() - wallpaperWidth) / 2;
-                    end.x = start.x + wallpaperWidth;
-                }
-
-                if (bitmap.getHeight() > wallpaperHeight) {
-                    start.y = (bitmap.getHeight() - wallpaperHeight) / 2;
-                    end.y = start.y + wallpaperHeight;
-                }
-
-                wallpaperManager.setBitmap(bitmap, new Rect(start.x, start.y, end.x, end.y), false);
-            } else {
-                wallpaperManager.setBitmap(bitmap);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void setLockScreenWallpaper(Bitmap bitmap) {
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                WallpaperManager.getInstance(getContext()).setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void onWallpaperSelect(final Wallpaper wallpaper) {
+    private void query() {
         if (Build.VERSION.SDK_INT > Build.VERSION_CODES.KITKAT) {
-            ExecutorService executorService = Executors.newSingleThreadExecutor();
             executorService.submit(new Runnable() {
                 @Override
                 public void run() {
-                    final WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
-                        query();
-                        getActivity().runOnUiThread(new Runnable() {
-                            @Override
-                            public void run() {
-//                                Intent intent = wallpaperManager.getCropAndSetWallpaperIntent(Uri.parse("content://media/external/images/media/1"));
-//                                startActivity(intent);
+                    getActivity().runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Uri collection =  MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                            String[] projection = new String[] {
+                                    MediaStore.Images.Media._ID,
+                                    MediaStore.Images.Media.DISPLAY_NAME,
+                                    MediaStore.Images.Media.TITLE,
+                            };
+                            try (Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(
+                                    collection,
+                                    projection,
+                                    null,
+                                    null,
+                                    MediaStore.Images.Media.DATE_TAKEN + " DESC LIMIT 20"
+                            )) {
+                                // Cache column indices.
+                                int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
+                                int nameColumn =
+                                        cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
+                                int titleColumn =
+                                        cursor.getColumnIndexOrThrow(MediaStore.Images.Media.TITLE);
+
+                                wallpapers = new ArrayList<>();
+                                while (cursor.moveToNext()) {
+                                    long id = cursor.getLong(idColumn);
+                                    String name = cursor.getString(nameColumn);
+                                    String title = cursor.getString(titleColumn);
+
+                                    Uri contentUri = ContentUris.withAppendedId(
+                                            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                                    wallpapers.add(new Wallpaper(title, contentUri));
+                                }
+                                getActivity().runOnUiThread(new Runnable() {
+                                    @Override
+                                    public void run() {
+                                        wallpaperGalleryRecyclerAdapter.setWallpapers(wallpapers);
+                                    }
+                                });
                             }
-                        });
+                        }
+                    });
                 }
             });
         }
     }
 
-    private void query() {
-        Uri collection =  MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
-        String[] projection = new String[] {
-                MediaStore.Images.Media._ID,
-                MediaStore.Images.Media.DISPLAY_NAME,
-                MediaStore.Images.Media.TITLE,
-        };
-        try (Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(
-                collection,
-                projection,
-                null,
-                null,
-                 null
-        )) {
-            // Cache column indices.
-            int idColumn = cursor.getColumnIndexOrThrow(MediaStore.Images.Media._ID);
-            int nameColumn =
-                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME);
-            int titleColumnn =
-                    cursor.getColumnIndexOrThrow(MediaStore.Images.Media.TITLE);
-            System.out.println("KELVIN cursor=" + cursor.getCount());
-            while (cursor.moveToNext()) {
-                // Get values of columns for a given video.
-                long id = cursor.getLong(idColumn);
-                String name = cursor.getString(nameColumn);
-                String title = cursor.getString(titleColumnn);
-
-                Uri contentUri = ContentUris.withAppendedId(
-                        MediaStore.Video.Media.EXTERNAL_CONTENT_URI, id);
-                System.out.println("KELVIN uri=" + contentUri + " title=" + title + " name = " + name);
-            }
-        }
+    @Override
+    public void onWallpaperSelect(Wallpaper wallpaper) {
+        WallpaperManager wallpaperManager = WallpaperManager.getInstance(getContext());
+        startActivity(wallpaperManager.getCropAndSetWallpaperIntent(wallpaper.getImageUri()));
     }
 }
