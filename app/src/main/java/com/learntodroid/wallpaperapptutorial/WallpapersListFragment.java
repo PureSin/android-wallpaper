@@ -2,6 +2,7 @@ package com.learntodroid.wallpaperapptutorial;
 
 import android.Manifest;
 import android.app.WallpaperManager;
+import android.content.ContentResolver;
 import android.content.ContentUris;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -17,6 +18,7 @@ import android.provider.MediaStore;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -44,6 +46,7 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
     private WallpaperGalleryRecyclerAdapter wallpaperGalleryRecyclerAdapter;
     private List<Wallpaper> wallpapers;
     private ExecutorService executorService = Executors.newSingleThreadExecutor();
+    private Button queryButton;
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -82,7 +85,17 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_listwallpapers, container, false);
-
+        queryButton = view.findViewById(R.id.query);
+        queryButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                System.out.println("KELVIN querying");
+                Cursor query = getContext().getContentResolver().query(Uri.parse("content://" + ExampleContentProvider.AUTHORITY+ "/table4/1"), null, null, null, null);
+                if (query != null) {
+                    System.out.println("KELVIN " + query.getCount());
+                }
+            }
+        });
         wallpaperRecyclerView = view.findViewById(R.id.fragment_listwallpapers_recyclerView);
         wallpaperRecyclerView.setLayoutManager(new LinearLayoutManager(getContext()));
         wallpaperRecyclerView.setAdapter(wallpaperGalleryRecyclerAdapter);
@@ -104,7 +117,9 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
                                     MediaStore.Images.Media.DISPLAY_NAME,
                                     MediaStore.Images.Media.TITLE,
                             };
-                            try (Cursor cursor = getActivity().getApplicationContext().getContentResolver().query(
+                            ContentResolver contentResolver = getActivity().getApplicationContext().getContentResolver();
+
+                            try (Cursor cursor = contentResolver.query(
                                     collection,
                                     projection,
                                     null,
