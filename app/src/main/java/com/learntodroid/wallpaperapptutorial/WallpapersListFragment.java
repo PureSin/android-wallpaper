@@ -90,9 +90,15 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
             @Override
             public void onClick(View v) {
                 System.out.println("KELVIN querying");
-                Cursor query = getContext().getContentResolver().query(Uri.parse("content://" + ExampleContentProvider.AUTHORITY+ "/table4/1"), null, null, null, null);
-                if (query != null) {
-                    System.out.println("KELVIN " + query.getCount());
+                Uri uri = Uri.parse("content://com.google.android.apps.photos.partnercontentprovider/getVersion");
+                Bundle b = new Bundle();
+                b.putInt("filter_id", 2);
+                b.putString("partner_authority", "KELVIN");
+                b.putParcelable("output_uri", Uri.parse("/storage/emulated/0/Download/tmp.jpg"));
+                b.putString("file_name", "/storage/emulated/0/Download/IMG_5789.jpg");
+                Bundle bundle = getContext().getContentResolver().call(uri, "applyPreviewFilter", null, b);
+                if (bundle != null) {
+                    System.out.println("KELVIN " + bundle);
                 }
             }
         });
@@ -141,6 +147,7 @@ public class WallpapersListFragment extends Fragment implements WallpaperSelectL
 
                                     Uri contentUri = ContentUris.withAppendedId(
                                             MediaStore.Images.Media.EXTERNAL_CONTENT_URI, id);
+                                    System.out.println("URI: " +contentUri);
                                     wallpapers.add(new Wallpaper(title, contentUri));
                                 }
                                 getActivity().runOnUiThread(new Runnable() {
